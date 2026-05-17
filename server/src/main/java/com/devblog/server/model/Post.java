@@ -30,4 +30,6 @@ public class Post {
     private User user;
 
     private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
 }
