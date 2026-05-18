@@ -6,38 +6,26 @@ import com.devblog.server.exception.PostNotFoundException;
 import com.devblog.server.model.Post;
 import com.devblog.server.model.User;
 import com.devblog.server.repository.PostRepository;
-import com.devblog.server.repository.UserRepository;
+import com.devblog.server.util.AuthUtils;
 import java.time.LocalDateTime;
-import java.util.List;
-import org.apache.coyote.Response;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PostService {
 
     private final PostRepository postRepository;
-    private final UserRepository userRepository;
+    private final AuthUtils authUtils;
 
-    public PostService(PostRepository postRepository, UserRepository userRepository) {
+    public PostService(PostRepository postRepository, AuthUtils authUtils) {
         this.postRepository = postRepository;
-        this.userRepository = userRepository;
-    }
-
-    private User getCurrentUser() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository
-            .findByEmail(email)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        this.authUtils = authUtils;
     }
 
     public PostResponse createPost(PostRequest request) {
-        User user = getCurrentUser();
+        User user = authUtils.getCurrentUser();
         Post post = new Post();
 
         post.setTitle(request.getTitle());
@@ -60,7 +48,7 @@ public class PostService {
     }
 
     public PostResponse editPost(Long postId, PostRequest request) {
-        User user = getCurrentUser();
+        User user = authUtils.getCurrentUser();
 
         Post existingPost = postRepository
             .findById(postId)
@@ -89,6 +77,40 @@ public class PostService {
         }
 
         postRepository.deleteById(id);
+    }
+
+    public Page<PostResponse> getAllPosts(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Post> posts = postRepository.findAll(pageable);
+
+        return posts.map(post -> {
+            PostResponse response = new PostResponse();
+            response.setId(post.getId());
+            response.setTitle(post.getTitle());
+            response.setContent(post.getContent());
+            response.setUsername(post.getUser().getUsername());
+            response.setCreatedAt(post.getCreatedAt());
+            response.setUpdatedAt(post.getUpdatedAt());
+
+            return response;
+        });
+    }
+
+    public PostResponse getPostById(Long postId) {
+        Post post = postRepository
+            .findById(postId)
+            .orElseThrow(() -> new PostNotFoundException(postId));
+
+        PostResponse response = new PostResponse();
+        response.setId(post.getId());
+        response.setTitle(post.getTitle());
+        response.setContent(post.getContent());
+        response.setUsername(post.getUser().getUsername());
+        response.setCreatedAt(post.getCreatedAt());
+        response.setUpdatedAt(post.getUpdatedAt());
+
+        return response;
     }
 
     public Page<PostResponse> searchPost(String query, int page, int size) {
