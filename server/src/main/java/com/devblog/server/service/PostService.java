@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class PostService {
@@ -54,6 +56,10 @@ public class PostService {
             .findById(postId)
             .orElseThrow(() -> new PostNotFoundException(postId));
 
+        if (!existingPost.getUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't own this post");
+        }
+
         existingPost.setTitle(request.getTitle());
         existingPost.setContent(request.getContent());
         existingPost.setUpdatedAt(LocalDateTime.now());
@@ -71,12 +77,15 @@ public class PostService {
         return response;
     }
 
-    public void deletePost(Long id) {
-        if (!postRepository.existsById(id)) {
-            throw new PostNotFoundException(id);
-        }
+    public void deletePost(Long postId) {
+        Post post = postRepository
+            .findById(postId)
+            .orElseThrow(() -> new PostNotFoundException(postId));
 
-        postRepository.deleteById(id);
+        if (!post.getUser().getId().equals(authUtils.getCurrentUser().getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't own this post");
+        }
+        postRepository.deleteById(postId);
     }
 
     public Page<PostResponse> getAllPosts(int page, int size) {

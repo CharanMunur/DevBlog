@@ -157,6 +157,16 @@ public class UserService implements UserDetailsService {
         follow.setFollower(currentUser);
         follow.setFollowing(followingUser);
 
+        FollowId followId = new FollowId();
+        followId.setFollower(currentUser.getId());
+        followId.setFollowing(followingId);
+
+        if (followRepository.existsById(followId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Already following this user");
+        }
+
+        follow.setId(followId);
+
         followRepository.save(follow);
     }
 
