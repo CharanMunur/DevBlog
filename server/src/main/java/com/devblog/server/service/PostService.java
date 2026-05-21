@@ -3,6 +3,7 @@ package com.devblog.server.service;
 import com.devblog.server.dto.PostRequest;
 import com.devblog.server.dto.PostResponse;
 import com.devblog.server.exception.PostNotFoundException;
+import com.devblog.server.mapper.BlogMapper;
 import com.devblog.server.model.Post;
 import com.devblog.server.model.User;
 import com.devblog.server.repository.PostRepository;
@@ -20,33 +21,20 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final AuthUtils authUtils;
+    private final BlogMapper blogMapper;
 
-    public PostService(PostRepository postRepository, AuthUtils authUtils) {
+    public PostService(PostRepository postRepository, AuthUtils authUtils, BlogMapper blogMapper) {
         this.postRepository = postRepository;
         this.authUtils = authUtils;
+        this.blogMapper = blogMapper;
     }
 
     public PostResponse createPost(PostRequest request) {
         User user = authUtils.getCurrentUser();
-        Post post = new Post();
-
-        post.setTitle(request.getTitle());
-        post.setContent(request.getContent());
-        post.setUser(user);
-        post.setCreatedAt(LocalDateTime.now());
-        post.setUpdatedAt(null);
+        Post post = blogMapper.toNewPost(request, user, LocalDateTime.now());
 
         Post savedPost = postRepository.save(post);
-
-        PostResponse response = new PostResponse();
-
-        response.setId(savedPost.getId());
-        response.setTitle(savedPost.getTitle());
-        response.setContent(savedPost.getContent());
-        response.setUsername(savedPost.getUser().getUsername());
-        response.setCreatedAt(savedPost.getCreatedAt());
-
-        return response;
+        return blogMapper.toPostResponse(savedPost);
     }
 
     public PostResponse editPost(Long postId, PostRequest request) {
@@ -60,21 +48,10 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't own this post");
         }
 
-        existingPost.setTitle(request.getTitle());
-        existingPost.setContent(request.getContent());
-        existingPost.setUpdatedAt(LocalDateTime.now());
+        Post updatedPost = blogMapper.updatePost(existingPost, request, LocalDateTime.now());
 
-        Post savedPost = postRepository.save(existingPost);
-
-        PostResponse response = new PostResponse();
-        response.setId(savedPost.getId());
-        response.setTitle(savedPost.getTitle());
-        response.setContent(savedPost.getContent());
-        response.setUsername(user.getUsername());
-        response.setCreatedAt(existingPost.getCreatedAt());
-        response.setUpdatedAt(savedPost.getUpdatedAt());
-
-        return response;
+        Post savedPost = postRepository.save(updatedPost);
+        return blogMapper.toPostResponse(savedPost);
     }
 
     public void deletePost(Long postId) {
@@ -93,17 +70,7 @@ public class PostService {
 
         Page<Post> posts = postRepository.findAll(pageable);
 
-        return posts.map(post -> {
-            PostResponse response = new PostResponse();
-            response.setId(post.getId());
-            response.setTitle(post.getTitle());
-            response.setContent(post.getContent());
-            response.setUsername(post.getUser().getUsername());
-            response.setCreatedAt(post.getCreatedAt());
-            response.setUpdatedAt(post.getUpdatedAt());
-
-            return response;
-        });
+        return posts.map(blogMapper::toPostResponse);
     }
 
     public PostResponse getPostById(Long postId) {
@@ -111,15 +78,7 @@ public class PostService {
             .findById(postId)
             .orElseThrow(() -> new PostNotFoundException(postId));
 
-        PostResponse response = new PostResponse();
-        response.setId(post.getId());
-        response.setTitle(post.getTitle());
-        response.setContent(post.getContent());
-        response.setUsername(post.getUser().getUsername());
-        response.setCreatedAt(post.getCreatedAt());
-        response.setUpdatedAt(post.getUpdatedAt());
-
-        return response;
+        return blogMapper.toPostResponse(post);
     }
 
     public Page<PostResponse> searchPost(String query, int page, int size) {
@@ -127,16 +86,6 @@ public class PostService {
 
         Page<Post> posts = postRepository.findByTitleContainingIgnoreCase(query, pageable);
 
-        return posts.map(post -> {
-            PostResponse response = new PostResponse();
-            response.setId(post.getId());
-            response.setTitle(post.getTitle());
-            response.setContent(post.getContent());
-            response.setUsername(post.getUser().getUsername());
-            response.setCreatedAt(post.getCreatedAt());
-            response.setUpdatedAt(post.getUpdatedAt());
-
-            return response;
-        });
+        return posts.map(blogMapper::toPostResponse);
     }
 }

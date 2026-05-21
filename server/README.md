@@ -1,43 +1,78 @@
 # Devblog API
 
-This is the backend REST API for the Devblog application, built with Java and Spring Boot.
+Devblog API is the backend for the Devblog application. It provides authentication and post management with JWT-based security and PostgreSQL persistence. The domain model also includes follows and likes for user interactions.
+
+## Highlights
+
+- Stateless authentication with JWT
+- PostgreSQL-backed persistence via Spring Data JPA
+- Clean controller-service-repository layering
+- DTO-based request and response handling
 
 ## Tech Stack
 
-- **Framework**: [Spring Boot 3](https://spring.io/projects/spring-boot)
-- **Language**: Java 17+
-- **Security**: Spring Security with JWT Authentication
-- **Build Tool**: Gradle
+- **Framework:** Spring Boot 4.0.6
+- **Language:** Java 25
+- **Build Tool:** Gradle
+- **Database:** PostgreSQL
+- **Security:** Spring Security with JWT authentication
 
-## Development Setup
+## Getting Started
 
-1. Ensure you have Java 17+ installed.
-2. Clone the repository and navigate to the `server` folder.
-3. Set the required environment variables before starting the app, or create a local `.env` file from `.env.example`:
+### Prerequisites
 
-   ```bash
-   export SPRING_DATASOURCE_URL='jdbc:postgresql://<host>:<port>/<database>'
-   export SPRING_DATASOURCE_USERNAME='<database-user>'
-   export SPRING_DATASOURCE_PASSWORD='<database-password>'
-   export JWT_SECRET='<at-least-32-byte-signing-secret>'
-   ```
+- Java 25
+- PostgreSQL
+- A JWT signing secret with at least 32 bytes of entropy
 
-   The app also imports a local `.env` file automatically if present.
+### Environment Variables
 
-4. Start the application using Gradle:
+The application reads configuration from environment variables and also imports a local `.env` file if present.
 
-   ```bash
-   ./gradlew bootRun
-   ```
+Create a `.env` file in the project root with:
 
-5. By default, the API will run on `http://localhost:8080`.
+```bash
+SPRING_DATASOURCE_URL=jdbc:postgresql://<host>:<port>/<database>
+SPRING_DATASOURCE_USERNAME=<database-user>
+SPRING_DATASOURCE_PASSWORD=<database-password>
+JWT_SECRET=<at-least-32-byte-signing-secret>
+```
 
-## Architecture Overview
+An `.env.example` file is included as a template.
 
-The backend uses a standard controller-service-repository layered architecture:
-- `controllers/` - REST API endpoints handling HTTP requests and responses.
-- `services/` - Core business logic.
-- `repositories/` - Data access interfaces.
-- `security/` - JWT filters, utilities, and Spring Security configuration.
-- `models/` - JPA Entities mapping to database tables.
-- `dto/` - Data Transfer Objects for API request/response payloads.
+### Run the Application
+
+```bash
+./gradlew bootRun
+```
+
+The API starts on `http://localhost:8080` by default.
+
+## API Overview
+
+### Authentication
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+
+### Posts
+
+- `POST /api/posts`
+- `PUT /api/posts/{postId}`
+- `DELETE /api/posts/{postId}`
+- `GET /api/posts/search?query=...&page=...&size=...`
+
+## Security
+
+- `/api/auth/**` is public
+- All other routes require a valid JWT in the `Authorization: Bearer <token>` header
+- The application is stateless and does not use server-side sessions
+
+## Project Structure
+
+- `src/main/java/com/devblog/server/controller` - HTTP endpoints
+- `src/main/java/com/devblog/server/service` - business logic
+- `src/main/java/com/devblog/server/repository` - data access interfaces
+- `src/main/java/com/devblog/server/security` - JWT filter and Spring Security setup
+- `src/main/java/com/devblog/server/model` - JPA entities
+- `src/main/java/com/devblog/server/dto` - request and response payloads

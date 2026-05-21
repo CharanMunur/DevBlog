@@ -17,12 +17,12 @@ public class Like {
     private LikeId id;
 
     @ManyToOne
-    @MapsId("post")
+    @MapsId("postId")
     @JoinColumn(name = "post_id")
     private Post post;
 
     @ManyToOne
-    @MapsId("user")
+    @MapsId("userId")
     @JoinColumn(name = "user_id")
     private User user;
 }

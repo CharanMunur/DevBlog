@@ -5,6 +5,7 @@ import com.devblog.server.dto.LoginResponse;
 import com.devblog.server.dto.RegisterRequest;
 import com.devblog.server.dto.RegisterResponse;
 import com.devblog.server.dto.UserResponse;
+import com.devblog.server.mapper.BlogMapper;
 import com.devblog.server.model.Follow;
 import com.devblog.server.model.FollowId;
 import com.devblog.server.model.User;
@@ -35,6 +36,7 @@ public class UserService implements UserDetailsService {
     private final FollowRepository followRepository;
     private final JwtUtil jwtUtil;
     private final AuthUtils authUtils;
+    private final BlogMapper blogMapper;
     private final ObjectProvider<
         org.springframework.security.authentication.AuthenticationManager
     > authenticationManagerProvider;
@@ -44,6 +46,7 @@ public class UserService implements UserDetailsService {
         PasswordEncoder passwordEncoder,
         JwtUtil jwtUtil,
         AuthUtils authUtils,
+        BlogMapper blogMapper,
         ObjectProvider<
             org.springframework.security.authentication.AuthenticationManager
         > authenticationManagerProvider,
@@ -54,6 +57,7 @@ public class UserService implements UserDetailsService {
         this.followRepository = followRepository;
         this.jwtUtil = jwtUtil;
         this.authUtils = authUtils;
+        this.blogMapper = blogMapper;
         this.authenticationManagerProvider = authenticationManagerProvider;
     }
 
@@ -85,25 +89,15 @@ public class UserService implements UserDetailsService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username is already in use");
         }
 
-        User user = new User();
-        user.setName(request.getName());
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setDateJoined(LocalDateTime.now());
+        User user = blogMapper.toRegisteredUser(
+            request,
+            passwordEncoder.encode(request.getPassword()),
+            LocalDateTime.now()
+        );
 
         User savedUser = userRepository.save(user);
 
-        RegisterResponse response = new RegisterResponse();
-
-        response.setId(savedUser.getId());
-        response.setName(savedUser.getName());
-        response.setUsername(savedUser.getUsername());
-        response.setEmail(savedUser.getEmail());
-        response.setDateJoined(savedUser.getDateJoined());
-
-        return response;
+        return blogMapper.toRegisterResponse(savedUser);
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -120,13 +114,7 @@ public class UserService implements UserDetailsService {
 
         String token = jwtUtil.generateToken(user.getEmail());
 
-        LoginResponse response = new LoginResponse();
-
-        response.setId(user.getId());
-        response.setUsername(user.getUsername());
-        response.setToken(token);
-
-        return response;
+        return blogMapper.toLoginResponse(user, token);
     }
 
     public UserResponse getProfile(String username) {
@@ -136,45 +124,29 @@ public class UserService implements UserDetailsService {
                 new UsernameNotFoundException("User not found with username : " + username)
             );
 
-        UserResponse response = new UserResponse();
-
-        response.setId(user.getId());
-        response.setUsername(user.getUsername());
-        response.setBio(user.getBio());
-        response.setName(user.getName());
-        response.setDateJoined(user.getDateJoined());
-
-        return response;
+        return blogMapper.toUserResponse(user);
     }
 
-    public void followuser(UUID followingId) {
+    public void followUser(UUID followingId) {
         User currentUser = authUtils.getCurrentUser();
         User followingUser = userRepository
             .findById(followingId)
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        Follow follow = new Follow();
 
-        follow.setFollower(currentUser);
-        follow.setFollowing(followingUser);
-
-        FollowId followId = new FollowId();
-        followId.setFollower(currentUser.getId());
-        followId.setFollowing(followingId);
+        FollowId followId = blogMapper.toFollowId(currentUser.getId(), followingId);
 
         if (followRepository.existsById(followId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Already following this user");
         }
 
-        follow.setId(followId);
+        Follow follow = blogMapper.toFollow(currentUser, followingUser, followId);
 
         followRepository.save(follow);
     }
 
     public void unfollowUser(UUID followingId) {
         User currentUser = authUtils.getCurrentUser();
-        FollowId followId = new FollowId();
-        followId.setFollower(currentUser.getId());
-        followId.setFollowing(followingId);
+        FollowId followId = blogMapper.toFollowId(currentUser.getId(), followingId);
 
         followRepository.deleteById(followId);
     }
@@ -186,19 +158,9 @@ public class UserService implements UserDetailsService {
 
         List<Follow> follows = followRepository.findByFollowing(user);
 
-        return follows
-            .stream()
-            .map(follow -> {
-                UserResponse response = new UserResponse();
-                response.setId(follow.getFollower().getId());
-                response.setUsername(follow.getFollower().getUsername());
-                response.setName(follow.getFollower().getName());
-                response.setBio(follow.getFollower().getBio());
-                response.setDateJoined(follow.getFollower().getDateJoined());
-
-                return response;
-            })
-            .toList();
+        return blogMapper.toUserResponses(
+            follows.stream().map(Follow::getFollower).toList()
+        );
     }
 
     public List<UserResponse> getFollowing(String username) {
@@ -207,18 +169,8 @@ public class UserService implements UserDetailsService {
             .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         List<Follow> following = followRepository.findByFollower(user);
 
-        return following
-            .stream()
-            .map(follow -> {
-                UserResponse response = new UserResponse();
-                response.setId(follow.getFollowing().getId());
-                response.setUsername(follow.getFollowing().getUsername());
-                response.setName(follow.getFollowing().getName());
-                response.setBio(follow.getFollowing().getBio());
-                response.setDateJoined(follow.getFollowing().getDateJoined());
-
-                return response;
-            })
-            .toList();
+        return blogMapper.toUserResponses(
+            following.stream().map(Follow::getFollowing).toList()
+        );
     }
 }
